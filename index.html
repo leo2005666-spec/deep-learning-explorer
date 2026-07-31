@@ -22,7 +22,7 @@ html { scroll-behavior:smooth; }
 body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Microsoft YaHei','Segoe UI',system-ui,sans-serif; overflow:hidden; height:100vh; }
 
 /* ── 3D Background Canvas ── */
-#bgCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+#bgCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; }
 
 /* ── App Container ── */
 #app { position:fixed; top:0; left:0; width:100%; height:100%; z-index:1; pointer-events:none; }
@@ -139,7 +139,7 @@ body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Micro
   background:var(--glass); border:1px solid rgba(255,255,255,0.06); margin:1.5rem 0;
   position:relative; backdrop-filter:blur(12px);
 }
-.canvas3d-box canvas { width:100%; height:100%; }
+.canvas3d-box canvas { width:100%; height:100%; touch-action:none; }
 .canvas3d-box .hint {
   position:absolute; bottom:10px; left:14px; font-size:0.73rem; color:var(--text2);
   background:rgba(0,0,0,0.5); padding:3px 10px; border-radius:12px;
@@ -253,7 +253,7 @@ body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Micro
         <p>从零到精通<br>资源·论文·项目</p>
       </div>
     </div>
-    <p style="color:var(--text2); margin-top:1.5rem; font-size:0.85rem;">点击卡片进入章节 · 或使用右侧导航点</p>
+    <p style="color:var(--text2); margin-top:1.5rem; font-size:0.85rem;">点击卡片进入章节 · 右侧圆点导航 · 键盘←→切换 · 触控板拖拽旋转3D背景 · 双指缩放</p>
   </div>
 </section>
 
@@ -306,7 +306,7 @@ body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Micro
 
     <div class="canvas3d-box" id="nn3dBox">
       <canvas id="nn3dCanvas"></canvas>
-      <div class="hint">🖱️ 拖拽旋转 · 滚轮缩放 · 右键平移</div>
+      <div class="hint">🖱️ 拖拽旋转 · 滚轮缩放 · 右键平移 · 触控板双指旋转/捏合缩放</div>
     </div>
     <div class="btn-group">
       <button class="btn btn-primary" onclick="triggerNNProp()">⚡ 前向传播动画</button>
@@ -595,9 +595,84 @@ function setBgMode(mode) { bgTargetMode = mode; }
 // Page → bg mode mapping
 const pageModes = ['home','ml','nn','cnn','rnn','transformer','roadmap'];
 
-// Mouse tracking
+// Mouse / trackpad tracking
 let mx=0, my=0, tmx=0, tmy=0;
-window.addEventListener('mousemove', e => { tmx=(e.clientX/innerWidth-0.5)*2; tmy=(e.clientY/innerHeight-0.5)*2; });
+let bgZoom = 14; // background camera distance
+const bgZoomMin=6, bgZoomMax=25;
+let isDraggingBg=false, dragStartX=0, dragStartY=0, dragMoved=false;
+let bgRotX=0, bgRotY=0, targetBgRotX=0, targetBgRotY=0;
+
+window.addEventListener('mousemove', e => {
+  tmx=(e.clientX/innerWidth-0.5)*2;
+  tmy=(e.clientY/innerHeight-0.5)*2;
+  if (isDraggingBg) {
+    const dx=e.clientX-dragStartX, dy=e.clientY-dragStartY;
+    if (Math.abs(dx)>2||Math.abs(dy)>2) dragMoved=true;
+    targetBgRotY += dx*0.005;
+    targetBgRotX += dy*0.005;
+    dragStartX=e.clientX; dragStartY=e.clientY;
+  }
+});
+
+// Background canvas: drag to rotate, wheel to zoom
+bgCanvas.addEventListener('pointerdown', e => {
+  isDraggingBg=true; dragMoved=false;
+  dragStartX=e.clientX; dragStartY=e.clientY;
+  bgCanvas.setPointerCapture(e.pointerId);
+});
+bgCanvas.addEventListener('pointerup', e => {
+  isDraggingBg=false;
+  // If was a click (no drag), pass through to element behind
+  if (!dragMoved) {
+    bgCanvas.style.pointerEvents='none';
+    const el=document.elementFromPoint(e.clientX, e.clientY);
+    bgCanvas.style.pointerEvents='auto';
+    if (el && el!==bgCanvas) el.click();
+  }
+});
+bgCanvas.addEventListener('pointerleave', ()=>{ isDraggingBg=false; });
+
+// Wheel / pinch zoom for background (window-level, but skip if interacting with NN canvas)
+window.addEventListener('wheel', e => {
+  // Don't zoom if user is scrolling page content or interacting with 3D canvas
+  const target=e.target;
+  if (target.closest('.page') && !target.closest('canvas')) {
+    // User is scrolling page content, let it scroll naturally
+    return;
+  }
+  if (target.closest('#nn3dCanvas')) return; // OrbitControls handles this
+  e.preventDefault();
+  bgZoom += e.deltaY*0.01;
+  bgZoom = Math.max(bgZoomMin, Math.min(bgZoomMax, bgZoom));
+}, {passive:false});
+
+// Touch swipe for page navigation
+let touchStartX=0, touchStartY=0, touchStartTime=0;
+window.addEventListener('touchstart', e => {
+  if (e.touches.length===2) { // two-finger = potential swipe
+    touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY;
+    touchStartTime=Date.now();
+  }
+}, {passive:false});
+window.addEventListener('touchmove', e => {
+  // Prevent browser back/forward swipe on trackpad
+  if (e.touches.length===2) e.preventDefault();
+}, {passive:false});
+window.addEventListener('touchend', e => {
+  if (e.touches.length===0 && touchStartTime) {
+    const dt=Date.now()-touchStartTime;
+    if (dt<500) {
+      // Check if it was a two-finger swipe (use changedTouches)
+      const dx=(e.changedTouches[0]?.clientX||0)-touchStartX;
+      const dy=(e.changedTouches[0]?.clientY||0)-touchStartY;
+      if (Math.abs(dx)>60 && Math.abs(dx)>Math.abs(dy)) {
+        if (dx<0 && currentPage<6) goToPage(currentPage+1);
+        else if (dx>0 && currentPage>0) goToPage(currentPage-1);
+      }
+    }
+    touchStartTime=0;
+  }
+});
 
 // Background animation
 function animateBg(time) {
@@ -655,8 +730,19 @@ function animateBg(time) {
     bgLight2.color.lerp(new THREE.Color(0x00d2ff), 0.02);
   }
 
-  bgCamera.position.x += (mx*1.2 - bgCamera.position.x)*0.015;
-  bgCamera.position.y += (-my*0.6 - bgCamera.position.y)*0.015;
+  // Smooth rotation from drag + mouse
+  bgRotX += (targetBgRotX - bgRotX)*0.08;
+  bgRotY += (targetBgRotY - bgRotY)*0.08;
+  if (!isDraggingBg) {
+    targetBgRotY += mx*0.003;
+    targetBgRotX += -my*0.002;
+  }
+
+  // Camera orbiting with zoom
+  const camX = Math.sin(bgRotY)*Math.cos(bgRotX)*bgZoom;
+  const camY = Math.sin(bgRotX)*bgZoom;
+  const camZ = Math.cos(bgRotY)*Math.cos(bgRotX)*bgZoom;
+  bgCamera.position.lerp(new THREE.Vector3(camX, camY, camZ), 0.06);
   bgCamera.lookAt(0,0,0);
   bgRenderer.render(bgScene, bgCamera);
 }
@@ -737,6 +823,7 @@ function initNN3D() {
   nnControls.enableDamping=true; nnControls.dampingFactor=0.08;
   nnControls.minDistance=4; nnControls.maxDistance=18;
   nnControls.target.set(0,0,0);
+  nnControls.touches = { ONE:THREE.TOUCH.ROTATE, TWO:THREE.TOUCH.DOLLY_PAN };
 
   nnScene.add(new THREE.AmbientLight(0x334466,3));
   nnScene.add(new THREE.PointLight(0x6c5ce7,35,18)).position.set(5,5,5);

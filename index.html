@@ -22,7 +22,7 @@ html { scroll-behavior:smooth; }
 body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Microsoft YaHei','Segoe UI',system-ui,sans-serif; overflow:hidden; height:100vh; }
 
 /* ── 3D Background Canvas ── */
-#bgCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; }
+#bgCanvas { position:fixed; top:0; left:0; width:100%; height:100%; z-index:0; pointer-events:none; }
 
 /* ── App Container ── */
 #app { position:fixed; top:0; left:0; width:100%; height:100%; z-index:1; pointer-events:none; }
@@ -33,15 +33,13 @@ body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Micro
   position:absolute; top:0; left:0; width:100%; height:100%;
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   padding:60px 40px 40px;
-  opacity:0; transform:translateY(30px);
-  transition:opacity .5s cubic-bezier(.4,0,.2,1), transform .5s cubic-bezier(.4,0,.2,1);
-  pointer-events:none; overflow-y:auto;
+  opacity:0; transform:scale(0.97) translateY(20px);
+  transition:opacity .45s cubic-bezier(.4,0,.2,1), transform .45s cubic-bezier(.4,0,.2,1);
+  pointer-events:none; overflow-y:auto; visibility:hidden;
 }
-.page.active { opacity:1; transform:translateY(0); pointer-events:auto; }
-.page.exit-left { opacity:0; transform:translateX(-60px); }
-.page.exit-right { opacity:0; transform:translateX(60px); }
-.page.enter-left { opacity:0; transform:translateX(-60px); }
-.page.enter-right { opacity:0; transform:translateX(60px); }
+.page.active { opacity:1; transform:scale(1) translateY(0); pointer-events:auto; visibility:visible; }
+.page.exit-left { opacity:0; transform:scale(0.96) translateX(-40px); visibility:hidden; }
+.page.exit-right { opacity:0; transform:scale(0.96) translateX(40px); visibility:hidden; }
 
 .page-inner { max-width:900px; width:100%; }
 .page::-webkit-scrollbar { width:4px; }
@@ -70,10 +68,13 @@ body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Micro
   border:1px solid rgba(255,255,255,0.08); border-radius:var(--radius);
   box-shadow:0 20px 60px rgba(0,0,0,0.4);
 }
+.glass-card, [data-goto], [data-nav], [data-filter] {
+  cursor:pointer;
+}
 .glass-card {
   background:var(--glass); backdrop-filter:blur(24px); -webkit-backdrop-filter:blur(24px);
   border:1px solid rgba(255,255,255,0.08); border-radius:var(--radius); padding:1.8rem;
-  transition:all .35s; cursor:pointer; position:relative; overflow:hidden;
+  transition:all .35s; position:relative; overflow:hidden;
 }
 .glass-card::before {
   content:''; position:absolute; top:0; left:0; right:0; height:1px;
@@ -228,27 +229,27 @@ body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Micro
       从感知机到Transformer — 7个章节，带你用视觉与交互理解神经网络每一个细节
     </p>
     <div class="home-cards">
-      <div class="glass-card home-card" onclick="goToPage(1)">
+      <div class="glass-card home-card" data-goto="1">
         <div class="icon">📊</div><h3>机器学习基础</h3>
         <p>监督·无监督·强化学习<br>偏差方差·正则化</p>
       </div>
-      <div class="glass-card home-card" onclick="goToPage(2)">
+      <div class="glass-card home-card" data-goto="2">
         <div class="icon">🧠</div><h3>神经网络</h3>
         <p>神经元·激活函数<br>反向传播·梯度下降</p>
       </div>
-      <div class="glass-card home-card" onclick="goToPage(3)">
+      <div class="glass-card home-card" data-goto="3">
         <div class="icon">🔲</div><h3>CNN</h3>
         <p>卷积·池化·特征提取<br>经典架构解析</p>
       </div>
-      <div class="glass-card home-card" onclick="goToPage(4)">
+      <div class="glass-card home-card" data-goto="4">
         <div class="icon">🔄</div><h3>RNN / LSTM</h3>
         <p>序列建模·时间展开<br>门控机制·GRU</p>
       </div>
-      <div class="glass-card home-card" onclick="goToPage(5)">
+      <div class="glass-card home-card" data-goto="5">
         <div class="icon">💡</div><h3>Transformer</h3>
         <p>Self-Attention<br>多头注意力·位置编码</p>
       </div>
-      <div class="glass-card home-card" onclick="goToPage(6)">
+      <div class="glass-card home-card" data-goto="6">
         <div class="icon">🗺️</div><h3>学习路线图</h3>
         <p>从零到精通<br>资源·论文·项目</p>
       </div>
@@ -290,9 +291,9 @@ body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Micro
     </div>
 
     <div class="page-nav-row">
-      <button class="btn btn-outline" onclick="goToPage(0)">← 首页</button>
+      <button class="btn btn-outline" data-goto="0">← 首页</button>
       <span style="color:var(--text2); font-size:0.85rem;">1 / 7</span>
-      <button class="btn btn-primary" onclick="goToPage(2)">神经网络 →</button>
+      <button class="btn btn-primary" data-goto="2">神经网络 →</button>
     </div>
   </div>
 </section>
@@ -309,8 +310,8 @@ body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Micro
       <div class="hint">🖱️ 拖拽旋转 · 滚轮缩放 · 右键平移 · 触控板双指旋转/捏合缩放</div>
     </div>
     <div class="btn-group">
-      <button class="btn btn-primary" onclick="triggerNNProp()">⚡ 前向传播动画</button>
-      <button class="btn btn-outline" onclick="resetNNView()">🔄 重置视角</button>
+      <button class="btn btn-primary" id="btnTriggerProp">⚡ 前向传播动画</button>
+      <button class="btn btn-outline" id="btnResetNN">🔄 重置视角</button>
     </div>
 
     <div class="card-grid col3">
@@ -338,9 +339,9 @@ body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Micro
     </table>
 
     <div class="page-nav-row">
-      <button class="btn btn-outline" onclick="goToPage(1)">← ML基础</button>
+      <button class="btn btn-outline" data-goto="1">← ML基础</button>
       <span style="color:var(--text2); font-size:0.85rem;">2 / 7</span>
-      <button class="btn btn-primary" onclick="goToPage(3)">CNN →</button>
+      <button class="btn btn-primary" data-goto="3">CNN →</button>
     </div>
   </div>
 </section>
@@ -359,11 +360,11 @@ body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Micro
 
     <h3 style="text-align:center;">🎬 卷积操作交互演示</h3>
     <div class="btn-group">
-      <button class="btn btn-primary" id="btn-edge" onclick="setCNN('edge',this)">边缘检测</button>
-      <button class="btn btn-outline" id="btn-blur" onclick="setCNN('blur',this)">高斯模糊</button>
-      <button class="btn btn-outline" id="btn-sharp" onclick="setCNN('sharpen',this)">锐化</button>
-      <button class="btn btn-outline" id="btn-emboss" onclick="setCNN('emboss',this)">浮雕</button>
-      <button class="btn btn-outline" id="btn-rand" onclick="setCNN('random',this)">随机</button>
+      <button class="btn btn-primary" id="btn-edge" data-filter="edge">边缘检测</button>
+      <button class="btn btn-outline" id="btn-blur" data-filter="blur">高斯模糊</button>
+      <button class="btn btn-outline" id="btn-sharp" data-filter="sharpen">锐化</button>
+      <button class="btn btn-outline" id="btn-emboss" data-filter="emboss">浮雕</button>
+      <button class="btn btn-outline" id="btn-rand" data-filter="random">随机</button>
     </div>
     <canvas id="cnnCanvas" class="demo-canvas" height="320"></canvas>
 
@@ -387,9 +388,9 @@ body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Micro
     </table>
 
     <div class="page-nav-row">
-      <button class="btn btn-outline" onclick="goToPage(2)">← 神经网络</button>
+      <button class="btn btn-outline" data-goto="2">← 神经网络</button>
       <span style="color:var(--text2); font-size:0.85rem;">3 / 7</span>
-      <button class="btn btn-primary" onclick="goToPage(4)">RNN →</button>
+      <button class="btn btn-primary" data-goto="4">RNN →</button>
     </div>
   </div>
 </section>
@@ -423,9 +424,9 @@ body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Micro
     </table>
 
     <div class="page-nav-row">
-      <button class="btn btn-outline" onclick="goToPage(3)">← CNN</button>
+      <button class="btn btn-outline" data-goto="3">← CNN</button>
       <span style="color:var(--text2); font-size:0.85rem;">4 / 7</span>
-      <button class="btn btn-primary" onclick="goToPage(5)">Transformer →</button>
+      <button class="btn btn-primary" data-goto="5">Transformer →</button>
     </div>
   </div>
 </section>
@@ -459,9 +460,9 @@ body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Micro
     <canvas id="attnCanvas" class="demo-canvas" height="280"></canvas>
 
     <div class="page-nav-row">
-      <button class="btn btn-outline" onclick="goToPage(4)">← RNN</button>
+      <button class="btn btn-outline" data-goto="4">← RNN</button>
       <span style="color:var(--text2); font-size:0.85rem;">5 / 7</span>
-      <button class="btn btn-primary" onclick="goToPage(6)">学习路线 →</button>
+      <button class="btn btn-primary" data-goto="6">学习路线 →</button>
     </div>
   </div>
 </section>
@@ -492,9 +493,9 @@ body { background:var(--bg); color:var(--text); font-family:'PingFang SC','Micro
     </div>
 
     <div class="page-nav-row">
-      <button class="btn btn-outline" onclick="goToPage(5)">← Transformer</button>
+      <button class="btn btn-outline" data-goto="5">← Transformer</button>
       <span style="color:var(--text2); font-size:0.85rem;">6 / 7</span>
-      <button class="btn btn-primary pulse" onclick="goToPage(0)">🏠 回到首页</button>
+      <button class="btn btn-primary pulse" data-goto="0">🏠 回到首页</button>
     </div>
   </div>
 </section>
@@ -614,23 +615,22 @@ window.addEventListener('mousemove', e => {
   }
 });
 
-// Background canvas: drag to rotate, wheel to zoom
-bgCanvas.addEventListener('pointerdown', e => {
+// Drag to rotate background — use document-level handlers so it works everywhere
+document.addEventListener('pointerdown', e => {
+  // Only start drag on non-interactive areas (not buttons, cards, canvases)
+  if (e.target.closest('button,a,.glass-card,.nav-dot,canvas')) return;
   isDraggingBg=true; dragMoved=false;
   dragStartX=e.clientX; dragStartY=e.clientY;
-  bgCanvas.setPointerCapture(e.pointerId);
 });
-bgCanvas.addEventListener('pointerup', e => {
-  isDraggingBg=false;
-  // If was a click (no drag), pass through to element behind
-  if (!dragMoved) {
-    bgCanvas.style.pointerEvents='none';
-    const el=document.elementFromPoint(e.clientX, e.clientY);
-    bgCanvas.style.pointerEvents='auto';
-    if (el && el!==bgCanvas) el.click();
-  }
+document.addEventListener('pointermove', e => {
+  if (!isDraggingBg) return;
+  const dx=e.clientX-dragStartX, dy=e.clientY-dragStartY;
+  if (Math.abs(dx)>2||Math.abs(dy)>2) dragMoved=true;
+  targetBgRotY += dx*0.005;
+  targetBgRotX += dy*0.005;
+  dragStartX=e.clientX; dragStartY=e.clientY;
 });
-bgCanvas.addEventListener('pointerleave', ()=>{ isDraggingBg=false; });
+document.addEventListener('pointerup', () => { isDraggingBg=false; });
 
 // Wheel / pinch zoom for background (window-level, but skip if interacting with NN canvas)
 window.addEventListener('wheel', e => {
@@ -756,44 +756,63 @@ window.addEventListener('resize', () => {
 // ═══════════════════════════════════════
 //  2. PAGE NAVIGATION
 // ═══════════════════════════════════════
-let currentPage=0;
+let currentPage=0, isTransitioning=false;
 const pages = document.querySelectorAll('.page');
 const dots = document.querySelectorAll('.nav-dot');
 
 window.goToPage = function(idx) {
-  if (idx===currentPage) return;
+  if (idx===currentPage || isTransitioning) return;
+  isTransitioning=true;
   const old = pages[currentPage];
   const next = pages[idx];
-  const dir = idx > currentPage ? 'right' : 'left';
 
-  old.classList.remove('active'); old.classList.add(`exit-${dir}`);
-  next.classList.add(`enter-${dir === 'right' ? 'right' : 'left'}`);
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      next.classList.remove(`enter-right`, `enter-left`);
-      next.classList.add('active');
-      old.classList.remove('exit-right', 'exit-left');
-    });
-  });
+  old.classList.remove('active'); old.classList.add('exit-'+(idx>currentPage?'right':'left'));
+  next.classList.add('active');
+  next.classList.remove('exit-left','exit-right');
 
   currentPage = idx;
   dots.forEach((d,i) => d.classList.toggle('active', i===idx));
   setBgMode(pageModes[idx]);
 
-  // Initialize page-specific canvases
-  setTimeout(() => {
-    if (idx===2) { initNN3D(); resizeNNCanvas(); }
-    if (idx===2) drawActivationFunctions();
+  // Cleanup old page after transition
+  setTimeout(()=>{
+    old.classList.remove('exit-left','exit-right');
+    isTransitioning=false;
+  }, 500);
+
+  // Init canvases for new page
+  requestAnimationFrame(()=>{
+    if (idx===2) { initNN3D(); resizeNNCanvas(); drawActivationFunctions(); }
     if (idx===3) drawCNNDemo();
     if (idx===4) drawRNNAnim();
     if (idx===5) drawAttentionViz();
-  }, 100);
+  });
 };
+
+// JS event delegation for ALL navigation (no inline onclick)
+document.addEventListener('click', e => {
+  // Home page cards
+  const card = e.target.closest('[data-goto]');
+  if (card) {
+    e.preventDefault(); e.stopPropagation();
+    goToPage(parseInt(card.dataset.goto));
+    return;
+  }
+  // Page nav buttons
+  const navBtn = e.target.closest('[data-nav]');
+  if (navBtn) {
+    e.preventDefault(); e.stopPropagation();
+    goToPage(parseInt(navBtn.dataset.nav));
+    return;
+  }
+});
 
 // Nav dots click
 dots.forEach(dot => {
-  dot.addEventListener('click', () => goToPage(parseInt(dot.dataset.page)));
+  dot.addEventListener('click', e => {
+    e.stopPropagation();
+    goToPage(parseInt(dot.dataset.page));
+  });
 });
 
 // Keyboard navigation
@@ -1187,6 +1206,18 @@ window.drawCNNDemo = drawCNNDemo;
 window.drawRNNAnim = drawRNNAnim;
 window.drawAttentionViz = drawAttentionViz;
 
+// CNN filter button delegation
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-filter]');
+  if (btn) {
+    const mode = btn.dataset.filter;
+    setCNN(mode, btn);
+  }
+  // NN action buttons
+  if (e.target.closest('#btnTriggerProp')) triggerNNProp();
+  if (e.target.closest('#btnResetNN')) resetNNView();
+});
+
 window.addEventListener('resize', ()=>{
   drawActivationFunctions();
   drawCNNDemo();
@@ -1195,9 +1226,7 @@ window.addEventListener('resize', ()=>{
 });
 
 console.log('🧠 深度学习探索平台已就绪');
-console.log('   ← → 键盘方向键切换章节');
-console.log('   点击右侧圆点导航');
-console.log('   可在页面内滚动查看更多内容');
+console.log('   点击卡片切换章节 · 键盘←→切换 · 拖拽3D背景旋转 · 滚轮缩放');
 </script>
 </body>
 </html>

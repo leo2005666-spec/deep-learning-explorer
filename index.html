@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>深度学习探索 — 从感知机到Transformer</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #141420;
+    --surface2: #1a1a2e;
+    --text: #e0e0e0;
+    --text2: #a0a0b8;
+    --accent: #6c5ce7;
+    --accent2: #00d2ff;
+    --accent3: #ff6b9d;
+    --gradient: linear-gradient(135deg, #6c5ce7, #00d2ff);
+    --gradient2: linear-gradient(135deg, #ff6b9d, #ff8a5c);
+    --radius: 12px;
+    --font: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+    --mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; scrollbar-width:thin; scrollbar-color:#333 #0a0a0f; }
+  body { background:var(--bg); color:var(--text); font-family:var(--font); line-height:1.7; overflow-x:hidden; }
+
+  /* ── NAV ── */
+  nav {
+    position:fixed; top:0; left:0; right:0; z-index:100;
+    background:rgba(10,10,15,0.85); backdrop-filter:blur(20px);
+    border-bottom:1px solid rgba(255,255,255,0.06);
+    padding:0 2rem; height:56px; display:flex; align-items:center; gap:1.5rem;
+  }
+  nav .logo { font-weight:800; font-size:1.1rem; background:var(--gradient); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  nav a { color:var(--text2); text-decoration:none; font-size:0.85rem; transition:color .2s; white-space:nowrap; }
+  nav a:hover { color:#fff; }
+  nav .lang-badge { margin-left:auto; font-size:0.75rem; padding:3px 10px; border-radius:20px; background:var(--surface2); color:var(--text2); }
+
+  /* ── HERO ── */
+  #hero {
+    position:relative; height:100vh; display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  #hero canvas { position:absolute; top:0; left:0; width:100%; height:100%; }
+  #hero .overlay {
+    position:relative; z-index:2; text-align:center; pointer-events:none;
+    padding:2rem;
+  }
+  #hero h1 { font-size:clamp(2.2rem, 5vw, 4rem); font-weight:900; letter-spacing:-0.02em; line-height:1.15; }
+  #hero h1 span { display:block; background:var(--gradient); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+  #hero p { color:var(--text2); font-size:1.15rem; margin-top:1rem; max-width:600px; }
+  #hero .scroll-hint { position:absolute; bottom:2rem; left:50%; translate:-50% 0; z-index:2; animation:bounce 2s infinite; color:var(--text2); font-size:0.85rem; cursor:pointer; pointer-events:auto; }
+  @keyframes bounce { 0%,100% { translate:-50% 0 } 50% { translate:-50% 10px } }
+
+  /* ── SECTIONS ── */
+  section { padding:6rem 2rem; max-width:1100px; margin:0 auto; }
+  section:nth-child(even) { background:var(--surface); }
+  .section-label { font-size:0.8rem; text-transform:uppercase; letter-spacing:0.15em; color:var(--accent); font-weight:700; margin-bottom:0.5rem; }
+  .section-title { font-size:clamp(1.8rem, 3vw, 2.6rem); font-weight:800; margin-bottom:1rem; letter-spacing:-0.01em; }
+  .section-subtitle { color:var(--text2); font-size:1.05rem; max-width:650px; margin-bottom:3rem; }
+
+  /* ── CARDS ── */
+  .card-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:1.5rem; }
+  .card {
+    background:var(--surface2); border-radius:var(--radius); padding:1.8rem;
+    border:1px solid rgba(255,255,255,0.05); transition:transform .3s, border-color .3s, box-shadow .3s;
+    cursor:default;
+  }
+  .card:hover { transform:translateY(-4px); border-color:rgba(108,92,231,0.3); box-shadow:0 20px 60px rgba(108,92,231,0.1); }
+  .card .icon { font-size:2rem; margin-bottom:1rem; }
+  .card h3 { font-size:1.15rem; margin-bottom:0.6rem; }
+  .card p { color:var(--text2); font-size:0.92rem; line-height:1.6; }
+  .card .tag { display:inline-block; margin-top:0.8rem; padding:3px 10px; border-radius:20px; font-size:0.75rem; background:rgba(108,92,231,0.15); color:var(--accent); }
+
+  /* ── 3D CONTAINER ── */
+  .canvas3d-container {
+    width:100%; height:500px; border-radius:var(--radius); overflow:hidden;
+    background:var(--surface2); position:relative; margin:2rem 0;
+    border:1px solid rgba(255,255,255,0.05);
+  }
+  .canvas3d-container canvas { width:100%; height:100%; }
+  .canvas3d-container .label-overlay {
+    position:absolute; bottom:1rem; left:1rem; font-size:0.8rem; color:var(--text2);
+    background:rgba(0,0,0,0.6); padding:4px 12px; border-radius:20px;
+  }
+
+  /* ── 2D CANVAS ── */
+  .demo-canvas { width:100%; max-width:700px; border-radius:var(--radius); display:block; margin:2rem auto; background:var(--surface2); }
+
+  /* ── TIMELINE ── */
+  .timeline { position:relative; padding-left:2rem; border-left:2px solid var(--surface2); }
+  .timeline-item { margin-bottom:2.5rem; position:relative; }
+  .timeline-item::before {
+    content:''; position:absolute; left:-2.4rem; top:0.4rem;
+    width:12px; height:12px; border-radius:50%; background:var(--accent);
+    box-shadow:0 0 12px var(--accent);
+  }
+  .timeline-item h3 { font-size:1.1rem; margin-bottom:0.3rem; }
+  .timeline-item .meta { color:var(--accent2); font-size:0.8rem; margin-bottom:0.5rem; }
+  .timeline-item p { color:var(--text2); font-size:0.92rem; }
+
+  /* ── ARCH DIAGRAM ── */
+  .arch-diagram { display:flex; align-items:center; justify-content:center; gap:0.5rem; flex-wrap:wrap; margin:2rem 0; }
+  .arch-layer {
+    padding:1rem 1.2rem; border-radius:var(--radius); background:var(--surface2);
+    border:2px solid rgba(108,92,231,0.3); text-align:center; min-width:100px;
+    position:relative;
+  }
+  .arch-layer .name { font-weight:700; font-size:0.95rem; }
+  .arch-layer .size { color:var(--text2); font-size:0.75rem; margin-top:0.3rem; display:block; }
+  .arch-arrow { color:var(--accent); font-size:1.5rem; font-weight:bold; }
+
+  /* ── COMPARISON TABLE ── */
+  .compare-table { width:100%; border-collapse:collapse; margin:2rem 0; font-size:0.9rem; }
+  .compare-table th, .compare-table td { padding:0.8rem 1rem; text-align:left; border-bottom:1px solid rgba(255,255,255,0.06); }
+  .compare-table th { color:var(--accent); font-weight:700; }
+  .compare-table td { color:var(--text2); }
+  .compare-table tr:hover td { background:rgba(108,92,231,0.05); }
+
+  /* ── FOOTER ── */
+  footer { text-align:center; padding:3rem 2rem; color:var(--text2); font-size:0.85rem; border-top:1px solid rgba(255,255,255,0.05); }
+  footer a { color:var(--accent); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width:768px) {
+    nav { padding:0 1rem; gap:0.8rem; overflow-x:auto; }
+    nav a { font-size:0.78rem; }
+    section { padding:4rem 1rem; }
+    .canvas3d-container { height:350px; }
+    .arch-diagram { flex-direction:column; gap:0.3rem; }
+    .arch-arrow { transform:rotate(90deg); }
+  }
+
+  /* ── BUTTON ── */
+  .btn {
+    display:inline-block; padding:10px 24px; border-radius:30px; font-weight:600; text-decoration:none;
+    font-size:0.9rem; cursor:pointer; border:none; transition:all .2s;
+  }
+  .btn-primary { background:var(--accent); color:#fff; }
+  .btn-primary:hover { background:#7c6df0; transform:translateY(-2px); box-shadow:0 8px 30px rgba(108,92,231,0.3); }
+  .btn-outline { background:transparent; color:var(--accent); border:1.5px solid var(--accent); }
+  .btn-outline:hover { background:rgba(108,92,231,0.1); }
+
+  /* CNN demo specific */
+  .cnn-controls { display:flex; gap:1rem; align-items:center; justify-content:center; flex-wrap:wrap; margin:1rem 0; }
+  .cnn-controls button {
+    padding:8px 18px; border-radius:20px; border:1px solid var(--accent); background:transparent;
+    color:var(--accent); cursor:pointer; font-size:0.85rem; transition:all .2s;
+  }
+  .cnn-controls button:hover, .cnn-controls button.active { background:var(--accent); color:#fff; }
+
+  /* Math formula style */
+  .formula {
+    font-family:var(--mono); background:var(--surface2); padding:1rem 1.5rem;
+    border-radius:var(--radius); display:inline-block; margin:0.5rem 0;
+    border-left:3px solid var(--accent); font-size:0.9rem; color:var(--accent2);
+  }
+
+  /* Highlight box */
+  .highlight-box {
+    background:linear-gradient(135deg, rgba(108,92,231,0.1), rgba(0,210,255,0.1));
+    border:1px solid rgba(108,92,231,0.2); border-radius:var(--radius);
+    padding:1.5rem; margin:1.5rem 0;
+  }
+  .highlight-box h4 { color:var(--accent2); margin-bottom:0.5rem; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ NAV ═══════════ -->
+<nav>
+  <span class="logo">🧠 DeepLearn</span>
+  <a href="#hero">首页</a>
+  <a href="#basics">基础</a>
+  <a href="#nn">神经网络</a>
+  <a href="#cnn">CNN</a>
+  <a href="#rnn">RNN</a>
+  <a href="#roadmap">路线图</a>
+  <span class="lang-badge">🌐 中英双语</span>
+</nav>
+
+<!-- ═══════════ HERO ═══════════ -->
+<section id="hero">
+  <canvas id="heroCanvas"></canvas>
+  <div class="overlay">
+    <p class="section-label">INTERACTIVE 3D EXPLORATION</p>
+    <h1>深度学习<span>交互探索</span></h1>
+    <p>从感知机到Transformer — 用视觉与交互理解神经网络的每一个细节，打下坚实基础</p>
+  </div>
+  <div class="scroll-hint" onclick="document.getElementById('basics').scrollIntoView()">↓ 开始探索</div>
+</section>
+
+<!-- ═══════════ 1. ML 基础 ═══════════ -->
+<section id="basics">
+  <p class="section-label">CHAPTER 01</p>
+  <h2 class="section-title">机器学习基础</h2>
+  <p class="section-subtitle">在深入神经网络之前，先理解机器学习的基本范式与核心概念</p>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="icon">📊</div>
+      <h3>监督学习 Supervised</h3>
+      <p>给定带标签的数据集 (x, y)，学习从输入到输出的映射函数 f(x)≈y。分类、回归是最常见的任务。</p>
+      <span class="tag">分类 · 回归</span>
+    </div>
+    <div class="card">
+      <div class="icon">🔍</div>
+      <h3>无监督学习 Unsupervised</h3>
+      <p>数据没有标签，模型自行发现隐藏的结构和模式。聚类、降维、密度估计是核心任务。</p>
+      <span class="tag">聚类 · 降维</span>
+    </div>
+    <div class="card">
+      <div class="icon">🎮</div>
+      <h3>强化学习 RL</h3>
+      <p>智能体通过与环境交互获得奖励/惩罚信号，学习最优策略。AlphaGo、自动驾驶的核心范式。</p>
+      <span class="tag">策略 · Q-Learning</span>
+    </div>
+    <div class="card">
+      <div class="icon">⚖️</div>
+      <h3>偏差-方差权衡</h3>
+      <p>欠拟合(高偏差)与过拟合(高方差)之间的平衡是ML的核心挑战。正则化、交叉验证是主要工具。</p>
+      <span class="tag">正则化 · 交叉验证</span>
+    </div>
+  </div>
+
+  <div class="highlight-box" style="margin-top:2rem;">
+    <h4>💡 关键公式：经验风险最小化</h4>
+    <div class="formula">min 1/n Σ L(f(xᵢ), yᵢ) + λR(f)</div>
+    <p style="color:var(--text2); margin-top:0.5rem; font-size:0.9rem;">
+      第一项是<strong>损失函数</strong>（衡量预测与真实的差距），第二项是<strong>正则化项</strong>（防止过拟合）。
+      λ 控制两者的平衡。
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════ 2. 神经网络 ═══════════ -->
+<section id="nn">
+  <p class="section-label">CHAPTER 02</p>
+  <h2 class="section-title">神经网络基础</h2>
+  <p class="section-subtitle">理解神经元、激活函数、反向传播——深度学习的基本构件</p>
+
+  <!-- 3D 交互神经网络 -->
+  <div class="canvas3d-container" id="nn3dContainer">
+    <canvas id="nn3dCanvas"></canvas>
+    <div class="label-overlay">🖱️ 拖拽旋转 · 滚轮缩放 · 点击传播</div>
+  </div>
+
+  <div style="display:flex; gap:1rem; justify-content:center; flex-wrap:wrap; margin-bottom:2rem;">
+    <button class="btn btn-primary" onclick="triggerPropagation()">⚡ 前向传播动画</button>
+    <button class="btn btn-outline" onclick="resetNNView()">🔄 重置视角</button>
+  </div>
+
+  <div class="card-grid">
+    <div class="card">
+      <div class="icon">🧬</div>
+      <h3>神经元 (Neuron)</h3>
+      <p>基本计算单元：接收多个输入，加权求和后通过激活函数输出。y = σ(Σwᵢxᵢ + b)</p>
+      <span class="tag">加权求和 · 激活</span>
+    </div>
+    <div class="card">
+      <div class="icon">📐</div>
+      <h3>激活函数</h3>
+      <p>引入非线性，让网络能拟合任意复杂函数。没有激活函数，多层网络等价于单层线性变换。</p>
+      <span class="tag">ReLU · Sigmoid · Tanh</span>
+    </div>
+    <div class="card">
+      <div class="icon">↩️</div>
+      <h3>反向传播 Backprop</h3>
+      <p>链式法则逐层计算梯度，从输出层反向传播到输入层。梯度下降更新权重，逐步减小损失。</p>
+      <span class="tag">链式法则 · 梯度下降</span>
+    </div>
+    <div class="card">
+      <div class="icon">🎯</div>
+      <h3>损失函数</h3>
+      <p>MSE用于回归，交叉熵用于分类。损失函数的梯度是反向传播的起点。</p>
+      <span class="tag">MSE · Cross-Entropy</span>
+    </div>
+  </div>
+
+  <!-- 激活函数可视化 -->
+  <h3 style="margin-top:3rem; text-align:center;">激活函数对比</h3>
+  <canvas id="activationCanvas" class="demo-canvas" height="350"></canvas>
+
+  <table class="compare-table">
+    <thead>
+      <tr><th>激活函数</th><th>公式</th><th>输出范围</th><th>优点</th><th>缺点</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>Sigmoid</strong></td><td>σ(x)=1/(1+e⁻ˣ)</td><td>(0, 1)</td><td>平滑、可解释为概率</td><td>梯度消失、非零中心</td></tr>
+      <tr><td><strong>Tanh</strong></td><td>tanh(x)</td><td>(-1, 1)</td><td>零中心、比Sigmoid梯度更强</td><td>仍有梯度消失问题</td></tr>
+      <tr><td><strong>ReLU</strong></td><td>max(0, x)</td><td>[0, ∞)</td><td>计算快、缓解梯度消失</td><td>Dying ReLU、非零中心</td></tr>
+      <tr><td><strong>LeakyReLU</strong></td><td>max(0.01x, x)</td><td>(-∞, ∞)</td><td>解决Dying ReLU</td><td>额外超参数α</td></tr>
+      <tr><td><strong>GELU</strong></td><td>x·Φ(x)</td><td>≈(-0.17, ∞)</td><td>平滑、Transformer标配</td><td>计算稍复杂</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════ 3. CNN ═══════════ -->
+<section id="cnn">
+  <p class="section-label">CHAPTER 03</p>
+  <h2 class="section-title">卷积神经网络 CNN</h2>
+  <p class="section-subtitle">图像识别的基石——理解卷积、池化与特征层次结构</p>
+
+  <!-- 卷积动画演示 -->
+  <h3 style="text-align:center;">🎬 卷积操作演示</h3>
+  <div class="cnn-controls">
+    <button class="active" onclick="setFilter('edge', this)">边缘检测</button>
+    <button onclick="setFilter('blur', this)">模糊</button>
+    <button onclick="setFilter('sharpen', this)">锐化</button>
+    <button onclick="setFilter('identity', this)">恒等</button>
+    <button onclick="setFilter('random', this)">随机</button>
+  </div>
+  <canvas id="cnnDemoCanvas" class="demo-canvas" height="280"></canvas>
+
+  <div class="card-grid" style="margin-top:2rem;">
+    <div class="card">
+      <div class="icon">🔲</div>
+      <h3>卷积层 Convolution</h3>
+      <p>用可学习的滤波器（卷积核）在输入上滑动，提取局部特征。参数共享大大减少参数量。</p>
+      <span class="tag">滤波器 · 特征图</span>
+    </div>
+    <div class="card">
+      <div class="icon">📥</div>
+      <h3>池化层 Pooling</h3>
+      <p>降采样特征图，减少计算量并提供平移不变性。Max Pooling取区域内最大值，最常用。</p>
+      <span class="tag">Max Pooling · 降采样</span>
+    </div>
+    <div class="card">
+      <div class="icon">🏗️</div>
+      <h3>特征层次</h3>
+      <p>浅层检测边缘/颜色 → 中层检测纹理/形状 → 深层检测语义/物体。逐层抽象，越来越"聪明"。</p>
+      <span class="tag">层级抽象</span>
+    </div>
+    <div class="card">
+      <div class="icon">🏛️</div>
+      <h3>经典架构</h3>
+      <p>LeNet → AlexNet → VGG → ResNet → EfficientNet。ResNet的残差连接解决了深层网络退化问题。</p>
+      <span class="tag">ResNet · 跳跃连接</span>
+    </div>
+  </div>
+
+  <div class="highlight-box">
+    <h4>🔑 为什么CNN适合图像？</h4>
+    <p style="color:var(--text2); font-size:0.92rem;">
+      <strong>1. 局部感受野</strong> — 每个神经元只看一小块区域，符合图像的局部性<br>
+      <strong>2. 参数共享</strong> — 同一个滤波器在整个图像上滑动，参数量从O(n²)降到O(k²)<br>
+      <strong>3. 平移等变性</strong> — 物体移动，特征也跟着移动。池化进一步提供平移不变性
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════ 4. RNN ═══════════ -->
+<section id="rnn">
+  <p class="section-label">CHAPTER 04</p>
+  <h2 class="section-title">循环神经网络 RNN</h2>
+  <p class="section-subtitle">处理序列数据的利器——从简单RNN到LSTM、GRU再到Attention</p>
+
+  <!-- RNN 展开动画 -->
+  <h3 style="text-align:center;">🔄 RNN 时间展开 (Unfolding)</h3>
+  <canvas id="rnnCanvas" class="demo-canvas" height="300"></canvas>
+  <p style="text-align:center; color:var(--text2); font-size:0.85rem; margin-top:0.5rem;">
+    同一个权重矩阵在每个时间步重复使用 — "循环"的本质
+  </p>
+
+  <div class="card-grid" style="margin-top:2rem;">
+    <div class="card">
+      <div class="icon">🔁</div>
+      <h3>简单RNN</h3>
+      <p>隐藏状态hₜ依赖当前输入xₜ和上一时刻状态hₜ₋₁：hₜ=tanh(Wₕhₜ₋₁+Wₓxₜ)。短序列有效，长序列梯度消失。</p>
+      <span class="tag">隐藏状态 · 梯度消失</span>
+    </div>
+    <div class="card">
+      <div class="icon">🧠</div>
+      <h3>LSTM</h3>
+      <p>引入遗忘门、输入门、输出门三个门控机制，用细胞状态(cell state)作为"高速公路"传递长期信息。</p>
+      <span class="tag">三门控 · 细胞状态</span>
+    </div>
+    <div class="card">
+      <div class="icon">⚡</div>
+      <h3>GRU</h3>
+      <p>LSTM的简化版：合并遗忘门和输入门为"更新门"。参数更少，训练更快，效果通常不输LSTM。</p>
+      <span class="tag">更新门 · 重置门</span>
+    </div>
+    <div class="card">
+      <div class="icon">🎯</div>
+      <h3>Attention</h3>
+      <p>不再依赖单一固定长度的上下文向量。Query、Key、Value机制让解码器能"关注"输入的任意位置。</p>
+      <span class="tag">Q·K^T · Softmax</span>
+    </div>
+  </div>
+
+  <table class="compare-table">
+    <thead><tr><th>特性</th><th>Simple RNN</th><th>LSTM</th><th>GRU</th><th>Transformer</th></tr></thead>
+    <tbody>
+      <tr><td>长期依赖</td><td>❌ 差</td><td>✅ 好</td><td>✅ 好</td><td>✅✅ 优秀</td></tr>
+      <tr><td>参数量</td><td>少</td><td>多(4门)</td><td>中(2门)</td><td>大</td></tr>
+      <tr><td>并行计算</td><td>❌ 串行</td><td>❌ 串行</td><td>❌ 串行</td><td>✅ 并行</td></tr>
+      <tr><td>训练速度</td><td>快</td><td>慢</td><td>较快</td><td>快(有GPU)</td></tr>
+      <tr><td>适用场景</td><td>短序列</td><td>长序列</td><td>长序列</td><td>任意长度</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ═══════════ 5. 学习路线 ═══════════ -->
+<section id="roadmap">
+  <p class="section-label">CHAPTER 05</p>
+  <h2 class="section-title">学习路线图</h2>
+  <p class="section-subtitle">从零基础到深度学习工程师的系统学习路径</p>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="meta">阶段 1 · 2-4周</div>
+      <h3>数学基础</h3>
+      <p>线性代数（矩阵乘法、特征值）、微积分（链式法则、梯度）、概率论（贝叶斯、分布）。推荐资源：3Blue1Brown</p>
+    </div>
+    <div class="timeline-item">
+      <div class="meta">阶段 2 · 3-5周</div>
+      <h3>经典机器学习</h3>
+      <p>线性回归、逻辑回归、SVM、决策树、随机森林、K-Means。用scikit-learn动手实现。Andrew Ng的ML课程是最好的入门。</p>
+    </div>
+    <div class="timeline-item">
+      <div class="meta">阶段 3 · 4-6周</div>
+      <h3>神经网络 & 深度学习入门</h3>
+      <p>从零实现一个神经网络(只用NumPy)，理解前向传播和反向传播的每个细节。然后用PyTorch/TensorFlow。</p>
+    </div>
+    <div class="timeline-item">
+      <div class="meta">阶段 4 · 3-4周</div>
+      <h3>CNN — 计算机视觉</h3>
+      <p>LeNet → AlexNet → VGG → ResNet。在MNIST、CIFAR-10、ImageNet上训练。学习数据增强、迁移学习。</p>
+    </div>
+    <div class="timeline-item">
+      <div class="meta">阶段 5 · 3-4周</div>
+      <h3>RNN/LSTM — 序列建模</h3>
+      <p>文本分类、情感分析、机器翻译。用LSTM/GRU做实际项目。理解Attention机制的演变。</p>
+    </div>
+    <div class="timeline-item">
+      <div class="meta">阶段 6 · 4-6周</div>
+      <h3>Transformer & 前沿</h3>
+      <p>Attention Is All You Need → BERT → GPT。理解Self-Attention、位置编码、多头注意力。PyTorch实现一个Mini-GPT。</p>
+    </div>
+    <div class="timeline-item">
+      <div class="meta">持续学习</div>
+      <h3>项目实战 & 深入研究</h3>
+      <p>Kaggle竞赛、开源贡献、读论文。选择一个方向深挖：CV/NLP/RL/生成模型/GNN。复现经典论文是最好的学习方式。</p>
+    </div>
+  </div>
+
+  <div class="highlight-box" style="margin-top:2rem;">
+    <h4>📚 推荐资源</h4>
+    <p style="color:var(--text2); font-size:0.9rem;">
+      <strong>课程：</strong>CS231n (CV), CS224n (NLP), CS229 (ML), fast.ai<br>
+      <strong>书籍：</strong>《深度学习》(花书)、《动手学深度学习》(d2l.ai)、《PRML》<br>
+      <strong>框架：</strong>PyTorch (学术界首选), TensorFlow/Keras (工业界)<br>
+      <strong>论文检索：</strong>Papers With Code, arXiv, Google Scholar
+    </p>
+  </div>
+</section>
+
+<footer>
+  <p>Built with ❤️ using Three.js · 深度学习交互探索平台</p>
+  <p style="margin-top:0.5rem;">学习是一场马拉松，不是冲刺 — 保持好奇，享受过程 🚀</p>
+</footer>
+
+<!-- ═══════════ SCRIPTS ═══════════ -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ═══════════════════════════════════════
+//  HERO 3D NEURAL NETWORK SCENE
+// ═══════════════════════════════════════
+const heroCanvas = document.getElementById('heroCanvas');
+const heroRenderer = new THREE.WebGLRenderer({ canvas: heroCanvas, antialias: true, alpha: true });
+heroRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+heroRenderer.setSize(window.innerWidth, window.innerHeight);
+
+const heroScene = new THREE.Scene();
+const heroCamera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+heroCamera.position.set(0, 1, 14);
+heroCamera.lookAt(0, 0, 0);
+
+// Lighting
+heroScene.add(new THREE.AmbientLight(0x222244, 2));
+const heroLight1 = new THREE.PointLight(0x6c5ce7, 80, 30);
+heroLight1.position.set(8, 5, 8);
+heroScene.add(heroLight1);
+const heroLight2 = new THREE.PointLight(0x00d2ff, 60, 30);
+heroLight2.position.set(-8, -2, -4);
+heroScene.add(heroLight2);
+
+// Particle texture
+function createGlowTexture(color, size) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+  g.addColorStop(0, color);
+  g.addColorStop(0.15, color);
+  g.addColorStop(0.5, 'rgba(0,0,0,0)');
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  return new THREE.CanvasTexture(c);
+}
+
+const glowTex = createGlowTexture('rgba(108,92,231,1)', 128);
+
+// Build neural network layers in 3D
+const heroLayers = [6, 8, 10, 8, 4]; // nodes per layer
+const layerSpacing = 4.5;
+const nodeSpacing = 1.3;
+const heroNodes = [];
+const heroConnections = [];
+const heroParticles = [];
+const heroNodeGroups = [];
+
+const heroNodeMat = new THREE.MeshStandardMaterial({ color: 0x6c5ce7, roughness: 0.2, metalness: 0.3, emissive: 0x2a1a6e, emissiveIntensity: 0.6 });
+const heroGlowSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.6 }));
+
+heroLayers.forEach((count, li) => {
+  const group = new THREE.Group();
+  const layerNodes = [];
+  const x = (li - (heroLayers.length - 1) / 2) * layerSpacing;
+  const yOffset = (count - 1) * nodeSpacing / 2;
+
+  for (let i = 0; i < count; i++) {
+    const nodeGeom = new THREE.SphereGeometry(0.2, 32, 32);
+    const node = new THREE.Mesh(nodeGeom, heroNodeMat);
+    node.position.set(x, yOffset - i * nodeSpacing, (Math.random() - 0.5) * 1.5);
+    node.castShadow = true;
+    group.add(node);
+
+    const glow = heroGlowSprite.clone();
+    glow.scale.set(1.2, 1.2, 1);
+    glow.position.copy(node.position);
+    group.add(glow);
+
+    layerNodes.push({ mesh: node, glow, basePos: node.position.clone() });
+  }
+
+  heroNodeGroups.push(group);
+  heroNodes.push(layerNodes);
+  heroScene.add(group);
+});
+
+// Connections between layers
+const heroConnMat = new THREE.LineBasicMaterial({ color: 0x4433aa, transparent: true, opacity: 0.2, depthWrite: false });
+heroNodes.forEach((layer, li) => {
+  if (li >= heroNodes.length - 1) return;
+  const nextLayer = heroNodes[li + 1];
+  layer.forEach(src => {
+    nextLayer.forEach(dst => {
+      const points = [src.mesh.position.clone(), dst.mesh.position.clone()];
+      const geom = new THREE.BufferGeometry().setFromPoints(points);
+      const line = new THREE.Line(geom, heroConnMat);
+      heroScene.add(line);
+      heroConnections.push({ line, src, dst, progress: Math.random() });
+    });
+  });
+});
+
+// Particle system flowing along connections
+const particleGeom = new THREE.BufferGeometry();
+const particleCount = heroConnections.length;
+const particlePositions = new Float32Array(particleCount * 3);
+const particleSizes = new Float32Array(particleCount);
+for (let i = 0; i < particleCount; i++) {
+  particlePositions[i * 3] = 0;
+  particlePositions[i * 3 + 1] = -100;
+  particlePositions[i * 3 + 2] = 0;
+  particleSizes[i] = 0.04;
+}
+particleGeom.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+particleGeom.setAttribute('size', new THREE.BufferAttribute(particleSizes, 1));
+const particleTex = createGlowTexture('rgba(0,210,255,1)', 64);
+const particleMat = new THREE.PointsMaterial({ map: particleTex, blending: THREE.AdditiveBlending, depthWrite: false, color: 0x00d2ff, size: 0.12 });
+const heroPoints = new THREE.Points(particleGeom, particleMat);
+heroScene.add(heroPoints);
+
+// Background stars
+const starsGeom = new THREE.BufferGeometry();
+const starsCount = 600;
+const starsPositions = new Float32Array(starsCount * 3);
+for (let i = 0; i < starsCount * 3; i += 3) {
+  starsPositions[i] = (Math.random() - 0.5) * 40;
+  starsPositions[i + 1] = (Math.random() - 0.5) * 30;
+  starsPositions[i + 2] = (Math.random() - 0.5) * 20;
+}
+starsGeom.setAttribute('position', new THREE.BufferAttribute(starsPositions, 3));
+const starsMat = new THREE.PointsMaterial({ color: 0x444466, size: 0.03, blending: THREE.AdditiveBlending, depthWrite: false });
+heroScene.add(new THREE.Points(starsGeom, starsMat));
+
+// Mouse tracking
+let heroMouseX = 0, heroMouseY = 0, heroTargetMX = 0, heroTargetMY = 0;
+window.addEventListener('mousemove', (e) => {
+  heroTargetMX = (e.clientX / window.innerWidth - 0.5) * 2;
+  heroTargetMY = (e.clientY / window.innerHeight - 0.5) * 2;
+});
+
+// Hero animation loop
+function animateHero(time) {
+  requestAnimationFrame(animateHero);
+
+  heroMouseX += (heroTargetMX - heroMouseX) * 0.03;
+  heroMouseY += (heroTargetMY - heroMouseY) * 0.03;
+
+  // Rotate entire neuron groups
+  heroNodeGroups.forEach((group, li) => {
+    group.rotation.y = Math.sin(time * 0.0003 + li * 0.5) * 0.3 + heroMouseX * 0.2;
+    group.rotation.x = Math.cos(time * 0.0004 + li * 0.4) * 0.15 + heroMouseY * 0.1;
+  });
+
+  // Bob nodes
+  heroNodes.forEach((layer, li) => {
+    layer.forEach((node, i) => {
+      node.mesh.position.y = node.basePos.y + Math.sin(time * 0.001 + li + i) * 0.15;
+      node.mesh.position.z = node.basePos.z + Math.cos(time * 0.0012 + li + i) * 0.15;
+      node.glow.position.copy(node.mesh.position);
+    });
+  });
+
+  // Update connection lines
+  heroConnections.forEach(conn => {
+    const positions = conn.line.geometry.attributes.position;
+    positions.setXYZ(0, conn.src.mesh.position.x, conn.src.mesh.position.y, conn.src.mesh.position.z);
+    positions.setXYZ(1, conn.dst.mesh.position.x, conn.dst.mesh.position.y, conn.dst.mesh.position.z);
+    positions.needsUpdate = true;
+  });
+
+  // Update particles flowing along connections
+  heroConnections.forEach((conn, idx) => {
+    conn.progress += 0.003 + Math.random() * 0.002;
+    if (conn.progress > 1) conn.progress = 0;
+    const t = conn.progress;
+    const sx = conn.src.mesh.position.x, sy = conn.src.mesh.position.y, sz = conn.src.mesh.position.z;
+    const dx = conn.dst.mesh.position.x, dy = conn.dst.mesh.position.y, dz = conn.dst.mesh.position.z;
+    particlePositions[idx * 3] = sx + (dx - sx) * t;
+    particlePositions[idx * 3 + 1] = sy + (dy - sy) * t;
+    particlePositions[idx * 3 + 2] = sz + (dz - sz) * t;
+    // Hide particles that haven't started or have finished
+    if (conn.progress < 0.01 || conn.progress > 0.99) {
+      particlePositions[idx * 3 + 1] = -100;
+    }
+  });
+  heroPoints.geometry.attributes.position.needsUpdate = true;
+
+  // Rotate lights
+  heroLight1.intensity = 60 + Math.sin(time * 0.001) * 20;
+  heroLight2.intensity = 40 + Math.cos(time * 0.0013) * 20;
+
+  heroCamera.position.x += (heroMouseX * 1.5 - heroCamera.position.x) * 0.02;
+  heroCamera.position.y += (-heroMouseY * 0.8 - heroCamera.position.y) * 0.02;
+  heroCamera.lookAt(0, 0, 0);
+
+  heroRenderer.render(heroScene, heroCamera);
+}
+animateHero(0);
+
+// Handle resize
+window.addEventListener('resize', () => {
+  heroRenderer.setSize(window.innerWidth, window.innerHeight);
+  heroCamera.aspect = window.innerWidth / window.innerHeight;
+  heroCamera.updateProjectionMatrix();
+});
+
+// ═══════════════════════════════════════
+//  INTERACTIVE 3D NEURAL NETWORK SCENE
+// ═══════════════════════════════════════
+const nnCanvas = document.getElementById('nn3dCanvas');
+const nnContainer = document.getElementById('nn3dContainer');
+const nnRenderer = new THREE.WebGLRenderer({ canvas: nnCanvas, antialias: true, alpha: true });
+nnRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+const nnScene = new THREE.Scene();
+const nnCamera = new THREE.PerspectiveCamera(50, 2, 0.1, 50);
+nnCamera.position.set(6, 2, 10);
+nnCamera.lookAt(0, 0, 0);
+
+const nnControls = new OrbitControls(nnCamera, nnCanvas);
+nnControls.enableDamping = true;
+nnControls.dampingFactor = 0.08;
+nnControls.minDistance = 5;
+nnControls.maxDistance = 20;
+nnControls.target.set(0, 0, 0);
+
+nnScene.add(new THREE.AmbientLight(0x334466, 3));
+const nnLight1 = new THREE.PointLight(0x6c5ce7, 40, 20);
+nnLight1.position.set(5, 5, 5);
+nnScene.add(nnLight1);
+const nnLight2 = new THREE.PointLight(0x00d2ff, 30, 20);
+nnLight2.position.set(-5, -2, -5);
+nnScene.add(nnLight2);
+
+// Layer config: [name, nodeCount, color]
+const nnLayerConfig = [
+  { name: '输入层', count: 4, color: 0x00d2ff, label: 'Input' },
+  { name: '隐藏层1', count: 8, color: 0x6c5ce7, label: 'H1' },
+  { name: '隐藏层2', count: 8, color: 0x6c5ce7, label: 'H2' },
+  { name: '输出层', count: 3, color: 0xff6b9d, label: 'Output' },
+];
+
+const nnLayers = [];
+const nnEdges = [];
+const nnLayerSpacing = 3.5;
+const nnNodeSpacing = 1.0;
+
+nnLayerConfig.forEach((cfg, li) => {
+  const nodes = [];
+  const x = (li - (nnLayerConfig.length - 1) / 2) * nnLayerSpacing;
+  const yOffset = (cfg.count - 1) * nnNodeSpacing / 2;
+
+  for (let i = 0; i < cfg.count; i++) {
+    const geom = new THREE.SphereGeometry(0.25, 32, 32);
+    const mat = new THREE.MeshStandardMaterial({ color: cfg.color, roughness: 0.2, metalness: 0.3, emissive: cfg.color, emissiveIntensity: 0.4 });
+    const mesh = new THREE.Mesh(geom, mat);
+    mesh.position.set(x, yOffset - i * nnNodeSpacing, (Math.random() - 0.5) * 0.6);
+    mesh.userData = { layer: li, index: i, color: cfg.color, baseEmissive: 0.4 };
+    nnScene.add(mesh);
+    nodes.push(mesh);
+  }
+  nnLayers.push({ cfg, nodes });
+});
+
+// Edges between layers
+nnLayers.forEach((layer, li) => {
+  if (li >= nnLayers.length - 1) return;
+  const nextLayer = nnLayers[li + 1];
+  layer.nodes.forEach(src => {
+    nextLayer.nodes.forEach(dst => {
+      const points = [src.position.clone(), dst.position.clone()];
+      const geom = new THREE.BufferGeometry().setFromPoints(points);
+      const mat = new THREE.LineBasicMaterial({ color: 0x334466, transparent: true, opacity: 0.3, depthWrite: false });
+      const line = new THREE.Line(geom, mat);
+      nnScene.add(line);
+      nnEdges.push({ line, src, dst, weight: Math.random() * 0.8 + 0.2 });
+    });
+  });
+});
+
+// Layer labels using sprites
+function createLabelSprite(text) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 64;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.font = 'bold 28px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(text, 128, 38);
+  const tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthWrite: false, transparent: true }));
+  sprite.scale.set(2.5, 0.6, 1);
+  return sprite;
+}
+
+nnLayerConfig.forEach((cfg, li) => {
+  const x = (li - (nnLayerConfig.length - 1) / 2) * nnLayerSpacing;
+  const y = (cfg.count - 1) * nnNodeSpacing / 2 + 1.2;
+  const label = createLabelSprite(cfg.name);
+  label.position.set(x, y, 0);
+  nnScene.add(label);
+});
+
+// Propagation animation
+let isPropagating = false;
+
+function triggerPropagation() {
+  if (isPropagating) return;
+  isPropagating = true;
+
+  const totalDuration = 2000;
+  const layerDelay = totalDuration / nnLayers.length;
+  const startTime = performance.now();
+
+  function animateProp(time) {
+    const elapsed = time - startTime;
+    nnLayers.forEach((layer, li) => {
+      const layerStart = li * layerDelay;
+      const layerEnd = layerStart + layerDelay * 0.7;
+      layer.nodes.forEach(node => {
+        let intensity;
+        if (elapsed < layerStart) intensity = 0.4;
+        else if (elapsed > layerEnd) intensity = 0.4;
+        else {
+          const t = (elapsed - layerStart) / (layerEnd - layerStart);
+          intensity = 0.4 + Math.sin(t * Math.PI) * 1.6;
+        }
+        node.material.emissiveIntensity = intensity;
+      });
+    });
+
+    // Animate edges
+    nnEdges.forEach(edge => {
+      const srcLayer = edge.src.userData.layer;
+      const dstLayer = edge.dst.userData.layer;
+      const layerStart = dstLayer * layerDelay;
+      const layerEnd = layerStart + layerDelay * 0.7;
+      if (elapsed < layerStart) {
+        edge.line.material.opacity = 0.3;
+        edge.line.material.color.set(0x334466);
+      } else if (elapsed > layerEnd) {
+        edge.line.material.opacity = 0.3;
+        edge.line.material.color.set(0x334466);
+      } else {
+        const t = (elapsed - layerStart) / (layerEnd - layerStart);
+        edge.line.material.opacity = 0.3 + Math.sin(t * Math.PI) * 0.7;
+        edge.line.material.color.set(0x00d2ff);
+      }
+    });
+
+    if (elapsed < totalDuration + 500) {
+      requestAnimationFrame(animateProp);
+    } else {
+      isPropagating = false;
+      // Reset all
+      nnLayers.forEach(layer => layer.nodes.forEach(n => n.material.emissiveIntensity = 0.4));
+      nnEdges.forEach(e => { e.line.material.opacity = 0.3; e.line.material.color.set(0x334466); });
+    }
+  }
+  requestAnimationFrame(animateProp);
+}
+
+window.triggerPropagation = triggerPropagation;
+window.resetNNView = () => {
+  nnCamera.position.set(6, 2, 10);
+  nnControls.target.set(0, 0, 0);
+  nnControls.update();
+};
+
+// Resize observer for NN canvas
+function resizeNNCanvas() {
+  const rect = nnContainer.getBoundingClientRect();
+  const w = rect.width;
+  const h = rect.height;
+  if (nnRenderer.domElement.width !== w * Math.min(window.devicePixelRatio, 2) ||
+      nnRenderer.domElement.height !== h * Math.min(window.devicePixelRatio, 2)) {
+    nnRenderer.setSize(w, h);
+    nnCamera.aspect = w / Math.max(h, 1);
+    nnCamera.updateProjectionMatrix();
+  }
+}
+
+// NN animation loop
+function animateNN() {
+  requestAnimationFrame(animateNN);
+  nnControls.update();
+  resizeNNCanvas();
+
+  // Subtle floating animation for nodes
+  const t = performance.now() * 0.001;
+  nnLayers.forEach((layer, li) => {
+    layer.nodes.forEach((node, i) => {
+      node.position.z += (Math.sin(t * 0.7 + li + i * 0.5) * 0.01);
+      // Clamp z
+      if (Math.abs(node.position.z - 0) > 0.6) node.position.z *= 0.99;
+    });
+  });
+
+  // Update edge positions
+  nnEdges.forEach(edge => {
+    const pos = edge.line.geometry.attributes.position;
+    pos.setXYZ(0, edge.src.position.x, edge.src.position.y, edge.src.position.z);
+    pos.setXYZ(1, edge.dst.position.x, edge.dst.position.y, edge.dst.position.z);
+    pos.needsUpdate = true;
+  });
+
+  nnRenderer.render(nnScene, nnCamera);
+}
+animateNN();
+
+// ═══════════════════════════════════════
+//  ACTIVATION FUNCTIONS CANVAS
+// ═══════════════════════════════════════
+function drawActivationFunctions() {
+  const canvas = document.getElementById('activationCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 350 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = 350;
+
+  ctx.fillStyle = '#141420';
+  ctx.fillRect(0, 0, W, H);
+
+  // Coordinate system
+  const cx = W / 2, cy = H / 2;
+  const scaleX = W / 8;
+  const scaleY = H / 6;
+
+  ctx.strokeStyle = '#2a2a3e';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, cy); ctx.lineTo(W, cy);
+  ctx.moveTo(cx, 0); ctx.lineTo(cx, H);
+  ctx.stroke();
+
+  // Grid
+  ctx.strokeStyle = '#1a1a2e';
+  for (let x = cx; x < W; x += scaleX) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let x = cx; x > 0; x -= scaleX) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = cy; y < H; y += scaleY) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  for (let y = cy; y > 0; y -= scaleY) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  const functions = [
+    { name: 'Sigmoid', color: '#ff6b9d', fn: x => 1 / (1 + Math.exp(-x)) },
+    { name: 'Tanh', color: '#ff8a5c', fn: x => Math.tanh(x) },
+    { name: 'ReLU', color: '#00d2ff', fn: x => Math.max(0, x) },
+    { name: 'LeakyReLU', color: '#6c5ce7', fn: x => x > 0 ? x : 0.1 * x },
+    { name: 'GELU', color: '#a29bfe', fn: x => 0.5 * x * (1 + Math.tanh(Math.sqrt(2/Math.PI) * (x + 0.044715 * x*x*x))) },
+  ];
+
+  functions.forEach(f => {
+    ctx.strokeStyle = f.color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    let started = false;
+    for (let px = 0; px < W; px++) {
+      const x = (px - cx) / scaleX;
+      const y = f.fn(x);
+      const py = cy - y * scaleY;
+      if (py > -20 && py < H + 20) {
+        if (!started) { ctx.moveTo(px, py); started = true; }
+        else ctx.lineTo(px, py);
+      } else started = false;
+    }
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = f.color;
+    ctx.font = 'bold 14px "PingFang SC","Microsoft YaHei",sans-serif';
+    const labelX = W - 120;
+    const labelY = 40 + functions.indexOf(f) * 28;
+    ctx.fillText('── ' + f.name, labelX, labelY);
+  });
+
+  // Axis labels
+  ctx.fillStyle = '#808090';
+  ctx.font = '12px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.fillText('x', W - 15, cy - 8);
+  ctx.fillText('y', cx + 6, 15);
+}
+
+window.addEventListener('resize', drawActivationFunctions);
+setTimeout(drawActivationFunctions, 200);
+
+// ═══════════════════════════════════════
+//  CNN DEMO CANVAS
+// ═══════════════════════════════════════
+let currentFilter = 'edge';
+
+const filters = {
+  edge:   { name: '边缘检测', kernel: [-1,-1,-1, -1,8,-1, -1,-1,-1], size: 3 },
+  blur:   { name: '模糊', kernel: [1/9,1/9,1/9, 1/9,1/9,1/9, 1/9,1/9,1/9], size: 3 },
+  sharpen:{ name: '锐化', kernel: [0,-1,0, -1,5,-1, 0,-1,0], size: 3 },
+  identity:{ name: '恒等', kernel: [0,0,0, 0,1,0, 0,0,0], size: 3 },
+  random: { name: '随机', kernel: null, size: 3 },
+};
+
+function setFilter(type, btn) {
+  currentFilter = type;
+  document.querySelectorAll('.cnn-controls button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (type === 'random') {
+    filters.random.kernel = Array.from({length: 9}, () => (Math.random() * 2 - 1).toFixed(2));
+  }
+  drawCNNDemo();
+}
+
+function drawCNNDemo() {
+  const canvas = document.getElementById('cnnDemoCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 280 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = 280;
+
+  ctx.fillStyle = '#141420';
+  ctx.fillRect(0, 0, W, H);
+
+  // Generate a simple "image" pattern
+  const imgSize = 12;
+  const cellSize = 24;
+  const imgStartX = 30;
+  const imgStartY = 20;
+  const image = [];
+
+  // Create a recognizable pattern (like a plus sign or edges)
+  for (let r = 0; r < imgSize; r++) {
+    image[r] = [];
+    for (let c = 0; c < imgSize; c++) {
+      // Simple pattern: bright cross with a darker border
+      let val = 0.2 + Math.random() * 0.1; // noise floor
+      if (r > 2 && r < 9 && c > 2 && c < 9) {
+        if (r > 4 && r < 7 && c > 4 && c < 7) val = 0.9;
+        else val = 0.5;
+      }
+      if (r === 5 || c === 5) val = 0.85;
+      image[r][c] = val;
+    }
+  }
+
+  // Draw input image
+  ctx.fillStyle = '#a0a0b8';
+  ctx.font = '13px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.fillText('输入图像 12×12', imgStartX, imgStartY - 6);
+
+  for (let r = 0; r < imgSize; r++) {
+    for (let c = 0; c < imgSize; c++) {
+      const v = image[r][c];
+      ctx.fillStyle = `rgb(${Math.floor(v*255)},${Math.floor(v*200)},${Math.floor(v*255)})`;
+      ctx.fillRect(imgStartX + c * cellSize, imgStartY + r * cellSize, cellSize - 1, cellSize - 1);
+    }
+  }
+
+  // Draw convolution process
+  const filterInfo = filters[currentFilter];
+  const kernel = filterInfo.kernel;
+  const kSize = filterInfo.size;
+  const pad = Math.floor(kSize / 2);
+  const outSize = imgSize - kSize + 1;
+  const outStartX = imgStartX + imgSize * cellSize + 80;
+  const outCellSize = 20;
+
+  ctx.fillStyle = '#a0a0b8';
+  ctx.fillText(`输出特征图 ${outSize}×${outSize}`, outStartX, imgStartY - 6);
+  ctx.fillStyle = '#00d2ff';
+  ctx.fillText(`滤波器: ${filterInfo.name}  ${kSize}×${kSize}`, outStartX, imgStartY + outSize * outCellSize + 30);
+
+  // Compute convolution
+  const output = [];
+  for (let r = 0; r < outSize; r++) {
+    output[r] = [];
+    for (let c = 0; c < outSize; c++) {
+      let sum = 0;
+      for (let kr = 0; kr < kSize; kr++) {
+        for (let kc = 0; kc < kSize; kc++) {
+          sum += image[r + kr][c + kc] * kernel[kr * kSize + kc];
+        }
+      }
+      output[r][c] = Math.max(0, Math.min(1, sum));
+    }
+  }
+
+  // Draw output
+  for (let r = 0; r < outSize; r++) {
+    for (let c = 0; c < outSize; c++) {
+      const v = output[r][c];
+      const rv = Math.floor(v * 255);
+      ctx.fillStyle = `rgb(${rv},${Math.floor(v*200)},${rv})`;
+      ctx.fillRect(outStartX + c * outCellSize, imgStartY + r * outCellSize, outCellSize - 1, outCellSize - 1);
+    }
+  }
+
+  // Draw arrow
+  const arrowX = imgStartX + imgSize * cellSize + 20;
+  const arrowY = imgStartY + (imgSize * cellSize) / 2;
+  ctx.strokeStyle = '#6c5ce7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(arrowX, arrowY);
+  ctx.lineTo(arrowX + 40, arrowY);
+  ctx.moveTo(arrowX + 32, arrowY - 6);
+  ctx.lineTo(arrowX + 42, arrowY);
+  ctx.lineTo(arrowX + 32, arrowY + 6);
+  ctx.stroke();
+
+  // Animated sliding window (draw on top)
+  let animStep = (performance.now() * 0.001 % 3) / 3 * outSize;
+  const highlightR = Math.floor(animStep);
+  const highlightC = Math.floor(animStep);
+  if (highlightR < outSize && highlightC < outSize) {
+    // Highlight on input
+    ctx.strokeStyle = '#00d2ff';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(imgStartX + highlightC * cellSize, imgStartY + highlightR * cellSize, kSize * cellSize, kSize * cellSize);
+    ctx.setLineDash([]);
+
+    // Highlight on output
+    ctx.fillStyle = 'rgba(0,210,255,0.5)';
+    ctx.fillRect(outStartX + highlightC * outCellSize, imgStartY + highlightR * outCellSize, outCellSize - 1, outCellSize - 1);
+  }
+
+  // Draw kernel values
+  const kernelStartX = imgStartX;
+  const kernelStartY = imgStartY + imgSize * cellSize + 30;
+  ctx.fillStyle = '#a0a0b8';
+  ctx.fillText('卷积核:', kernelStartX, kernelStartY - 6);
+  const kCell = 30;
+  for (let kr = 0; kr < kSize; kr++) {
+    for (let kc = 0; kc < kSize; kc++) {
+      const v = kernel[kr * kSize + kc];
+      const alpha = Math.min(1, Math.abs(v) * 2);
+      ctx.fillStyle = v >= 0 ? `rgba(0,210,255,${alpha})` : `rgba(255,107,157,${alpha})`;
+      ctx.fillRect(kernelStartX + kc * kCell, kernelStartY + kr * kCell, kCell - 2, kCell - 2);
+      ctx.fillStyle = '#fff';
+      ctx.font = '11px "SF Mono","Fira Code",monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(Number(v).toFixed(2), kernelStartX + kc * kCell + kCell/2, kernelStartY + kr * kCell + kCell/2 + 4);
+      ctx.textAlign = 'start';
+    }
+  }
+
+  requestAnimationFrame(() => setTimeout(() => drawCNNDemo(), 120));
+}
+
+window.setFilter = setFilter;
+drawCNNDemo();
+
+// ═══════════════════════════════════════
+//  RNN UNFOLDING ANIMATION
+// ═══════════════════════════════════════
+function drawRNN() {
+  const canvas = document.getElementById('rnnCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 300 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = 300;
+
+  ctx.fillStyle = '#141420';
+  ctx.fillRect(0, 0, W, H);
+
+  const steps = 5;
+  const boxW = 70;
+  const boxH = 50;
+  const startX = 60;
+  const startY = 80;
+  const gap = 50;
+  const nodeRadius = 14;
+
+  const t = performance.now() * 0.001;
+  const pulseStep = Math.floor((t % (steps * 1.5)) / 1.5);
+
+  for (let s = 0; s < steps; s++) {
+    const x = startX + s * (boxW + gap);
+    const y = startY;
+
+    // RNN cell box
+    const isPulse = s === pulseStep;
+    ctx.fillStyle = isPulse ? 'rgba(108,92,231,0.3)' : 'rgba(108,92,231,0.1)';
+    ctx.strokeStyle = isPulse ? '#6c5ce7' : '#4433aa';
+    ctx.lineWidth = isPulse ? 2.5 : 1.5;
+    ctx.beginPath();
+    ctx.roundRect(x, y, boxW, boxH, 8);
+    ctx.fill();
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = '#e0e0e0';
+    ctx.font = 'bold 12px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`h${s}`, x + boxW / 2, y + boxH / 2 + 4);
+    ctx.textAlign = 'start';
+
+    // Input arrow
+    ctx.strokeStyle = '#00d2ff';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x + boxW / 2, y + boxH + 15);
+    ctx.lineTo(x + boxW / 2, y + boxH);
+    ctx.stroke();
+    ctx.fillStyle = '#00d2ff';
+    ctx.font = '11px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`x${s}`, x + boxW / 2, y + boxH + 30);
+    ctx.textAlign = 'start';
+
+    // Hidden state arrow between cells
+    if (s < steps - 1) {
+      const arrowFromX = x + boxW;
+      const arrowToX = x + boxW + gap;
+      const arrowY = y + boxH / 2;
+
+      // Animate the arrow
+      const arrowProgress = (t * 0.8 % 1);
+      ctx.strokeStyle = '#ff6b9d';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(arrowFromX, arrowY);
+      ctx.lineTo(arrowToX, arrowY);
+      ctx.stroke();
+
+      // Arrowhead
+      ctx.beginPath();
+      ctx.moveTo(arrowToX - 6, arrowY - 5);
+      ctx.lineTo(arrowToX, arrowY);
+      ctx.lineTo(arrowToX - 6, arrowY + 5);
+      ctx.stroke();
+
+      // Moving dot
+      const dotX = arrowFromX + (arrowToX - arrowFromX) * arrowProgress;
+      ctx.fillStyle = '#ff6b9d';
+      ctx.beginPath();
+      ctx.arc(dotX, arrowY, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#ff6b9d';
+      ctx.font = '10px "PingFang SC","Microsoft YaHei",sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('W_h', arrowFromX + (arrowToX - arrowFromX)/2, arrowY - 10);
+      ctx.textAlign = 'start';
+    }
+
+    // Output arrow
+    ctx.strokeStyle = '#a0a0b8';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x + boxW / 2, y - 15);
+    ctx.lineTo(x + boxW / 2, y);
+    ctx.stroke();
+    ctx.fillStyle = '#a0a0b8';
+    ctx.font = '10px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`y${s}`, x + boxW / 2, y - 20);
+    ctx.textAlign = 'start';
+  }
+
+  // Left side: folded view
+  const foldedX = 30;
+  const foldedY = 170;
+  ctx.fillStyle = 'rgba(255,107,157,0.15)';
+  ctx.strokeStyle = '#ff6b9d';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(foldedX, foldedY, boxW, boxH, 8);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 12px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('RNN Cell', foldedX + boxW / 2, foldedY + boxH / 2 + 4);
+
+  // Self-loop arrow
+  ctx.strokeStyle = '#ff6b9d';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(foldedX + boxW + 5, foldedY + boxH / 2, 25, -Math.PI/2, Math.PI/2, false);
+  ctx.stroke();
+  // Arrowhead
+  ctx.beginPath();
+  ctx.moveTo(foldedX + boxW + 28, foldedY + boxH / 2 - 5);
+  ctx.lineTo(foldedX + boxW + 32, foldedY + boxH / 2);
+  ctx.lineTo(foldedX + boxW + 28, foldedY + boxH / 2 + 5);
+  ctx.stroke();
+
+  ctx.fillStyle = '#ff6b9d';
+  ctx.fillText('循环连接', foldedX + boxW + 60, foldedY + boxH / 2 + 4);
+  ctx.textAlign = 'start';
+
+  // Legend
+  ctx.fillStyle = '#00d2ff';
+  ctx.font = '11px "PingFang SC","Microsoft YaHei",sans-serif';
+  ctx.fillText('x = 输入序列', startX, H - 20);
+  ctx.fillStyle = '#ff6b9d';
+  ctx.fillText('h = 隐藏状态', startX + 120, H - 20);
+  ctx.fillStyle = '#a0a0b8';
+  ctx.fillText('y = 输出', startX + 250, H - 20);
+
+  requestAnimationFrame(() => setTimeout(() => drawRNN(), 100));
+}
+drawRNN();
+
+// Global resize handler for 2D canvases
+window.addEventListener('resize', () => {
+  drawActivationFunctions();
+  drawCNNDemo();
+});
+</script>
+
+</body>
+</html>
